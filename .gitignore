@@ -34,5 +34,6 @@
 *.exe
 *.out
 *.app
+mandel.out.dSYM/
 
 .vscode

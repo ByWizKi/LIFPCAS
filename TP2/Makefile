@@ -6,8 +6,8 @@ CXX=g++
 LDFLAGS=$(LDPATH) -lX11 -std=c++11 -pthread
 CFLAGS=-g -O0 -Wall -Wextra
 
-mandel: $(CPP_SRC) $(wildcard *.h) $(wildcard *.tpp)
+mandel.out: $(CPP_SRC) $(wildcard *.h) $(wildcard *.tpp)
 	$(CXX) $(CPP_SRC) -I/opt/X11/include $(CFLAGS) $(LDFLAGS) -o $@
 
 clean:
-	-$(RM) *.o mandel
+	-$(RM) *.o mandel.out
