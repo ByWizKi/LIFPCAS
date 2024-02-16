@@ -9,19 +9,23 @@
 #include <limits.h>
 #include <string.h>
 #include <sys/time.h>
-#include <mutex>
-#include <thread>
 
 #include "mandel.h"
 #include "display.h"
 
 #include <iostream>
+#include <thread>
+#include <mutex>
+#include <vector>
 
 // Last slice computed. The next slice to compute (the next task) is
 // obtained by incrementing this variable.
 static int last_slice;
+// Nous allons creer un mutex pour la variable partager last_slice
+std::mutex last_slice_mutex;
 
-// thread
+// Creation d'un variable pour compter le nombre de slices calcules
+int total_slices_count = 0;
 
 void init_iteration()
 {
@@ -35,14 +39,24 @@ void init()
 }
 
 // Function returning a screen slice to process.
-std::mutex m;
 int get_slice()
 {
-	std::lock_guard<std::mutex> guard(m);
-
+	// Utilisation de std::lock_guard pour verrouiller automatiquement le mutex et deverrouiller en fin de fonction
+	std::lock_guard<std::mutex> L(last_slice_mutex);
 	if (last_slice < number_of_slices)
 	{
-		int val = last_slice++;
+		int val = last_slice;
+
+		if (rand() % 2 == 0)
+		{
+			usleep(100);
+		}
+
+		last_slice += 1;
+
+		if (rand() % 2 == 0)
+			usleep(100);
+
 		return val;
 	}
 	else
@@ -68,40 +82,41 @@ void compute_and_draw_slice(int slice_number)
 	if (verbose > 0)
 		std::cout << "Finished slice " << slice_number << std::endl;
 }
-// Mutex pour la variable partager du compteur
-std::mutex count_mutex;
-int total_slices_count = 0;
+
 void draw_screen_worker()
 {
 	while (1)
 	{
-		int slice = get_slice();
-		if (slice == -1)
-			break;
-
-		compute_and_draw_slice(slice);
-		std::lock_guard<std::mutex> guard(count_mutex);
+		int i = get_slice();
+		if (i == -1)
+			return;
+		compute_and_draw_slice(i);
 		total_slices_count++;
 	}
 }
 
+/* Multi-threaded version of draw_screen_sequential.
+	 Returns the number of slices computed (sum of all threads)
+*/
 int draw_screen_thread()
 {
-	std::thread threads[number_of_threads];
-
-	// Les creations des threads
-	for (int i = 0; i < number_of_threads; i++)
-	{
-		threads[i] = std::thread(draw_screen_worker);
-	}
+	/*
+		Creation d'un tableau pour calculer chaque slice en parallele ils vont executer la
+		fontion draw_screen_worker
+	*/
+	std::vector<std::thread> tab_threads;
 
 	for (int i = 0; i < number_of_threads; i++)
 	{
-		threads[i].join();
+		tab_threads.push_back(std::thread(draw_screen_worker));
 	}
 
-	std::cout << "Il y a eu :" << total_slices_count << "tranches" << std::endl;
+	for (auto &t : tab_threads)
+	{
+		t.join();
+	}
 
+	std::cout << "We are using mutlithreading function" << std::endl;
 	return total_slices_count;
 }
 
@@ -221,6 +236,10 @@ int main(int argc, char **argv)
 				std::cout << "ERROR: Wrong number of slices computed: "
 									<< n << " (should be " << number_of_slices << ")"
 									<< std::endl;
+			}
+			else
+			{
+				std::cout << number_of_threads << " threads calculated " << n << " slices" << std::endl;
 			}
 		}
 		else
